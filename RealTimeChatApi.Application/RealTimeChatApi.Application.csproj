@@ -6,4 +6,8 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="..\RealTimeChatApi.Core\RealTimeChatApi.Core.csproj" />
+    </ItemGroup>
+
 </Project>
