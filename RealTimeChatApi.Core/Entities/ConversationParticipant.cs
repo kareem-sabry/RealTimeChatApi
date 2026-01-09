@@ -2,7 +2,7 @@
 
 namespace RealTimeChatApi.Core.Entities;
 
-public class ConversationParticipant : TimestampedEntity
+public class ConversationParticipant : ITimestampedEntity
 {
     public int ConversationId { get; set; }
     public Conversation Conversation { get; set; } = null!;
