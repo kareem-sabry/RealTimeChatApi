@@ -1,6 +1,6 @@
 ﻿namespace RealTimeChatApi.Core.Interfaces;
 
-public class ITimestampedEntity
+public interface ITimestampedEntity
 {
     DateTime CreatedAtUtc { get; set; }
 }
