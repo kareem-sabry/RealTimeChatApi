@@ -2,7 +2,7 @@
 using Moq;
 using RealTimeChatApi.Core.Entities;
 
-namespace RealTimeChatApi.Tests;
+namespace RealTimeChatApi.Tests.Helpers;
 
 public static  class TestHelper
 {
