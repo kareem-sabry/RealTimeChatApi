@@ -11,4 +11,5 @@ public interface IConversationRepository
     Task AddAsync(Conversation conversation);
     void Delete(Conversation conversation);
     Task<bool> IsUserParticipantAsync(int conversationId, Guid userId);
+    Task UpdateParticipantLastReadMessageAsync(int conversationId, Guid userId, int lastReadMessageId);
 }
