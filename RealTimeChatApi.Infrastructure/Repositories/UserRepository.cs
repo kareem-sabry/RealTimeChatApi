@@ -13,12 +13,15 @@ public class UserRepository : IUserRepository
     {
         _context = context;
     }
-    public async Task<User?> GetUserByRefreshTokenAsync(string refreshToken)
+
+    public async Task<User?> GetUserByRefreshTokenAsync(string refreshToken,
+        CancellationToken cancellationToken = default)
     {
-        return await _context.Users.FirstOrDefaultAsync(x => x.RefreshToken == refreshToken);
+        return await _context.Users.FirstOrDefaultAsync(x => x.RefreshToken == refreshToken, cancellationToken);
     }
 
-    public async Task<List<User>> SearchUsersAsync(string searchTerm, Guid currentUserId)
+    public async Task<List<User>> SearchUsersAsync(string searchTerm, Guid currentUserId,
+        CancellationToken cancellationToken = default)
     {
         var lowerSearchTerm = searchTerm.ToLower();
 
@@ -27,6 +30,6 @@ public class UserRepository : IUserRepository
                                                    u.FirstName.ToLower().Contains(lowerSearchTerm) ||
                                                    u.LastName.ToLower().Contains(lowerSearchTerm) ||
                                                    u.Email!.ToLower().Contains(lowerSearchTerm)
-                                               )).Take(20).ToListAsync();
+                                               )).Take(20).ToListAsync(cancellationToken);
     }
 }

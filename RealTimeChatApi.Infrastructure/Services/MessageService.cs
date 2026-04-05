@@ -21,14 +21,16 @@ public class MessageService : IMessageService
         IUnitOfWork unitOfWork,
         ILogger<MessageService> logger,
         IDateTimeProvider dateTimeProvider
-        )
+    )
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
         _dateTimeProvider = dateTimeProvider;
     }
 
-    public async Task<MessageDto> SendMessageAsync(int conversationId, Guid senderId, string content)
+    public async Task<MessageDto> SendMessageAsync(int conversationId, Guid senderId, string content,
+        CancellationToken cancellationToken = default)
+
     {
         if (string.IsNullOrWhiteSpace(content))
         {
@@ -40,7 +42,8 @@ public class MessageService : IMessageService
             throw new ArgumentException(ErrorMessages.MessageTooLong);
         }
 
-        var isParticipant = await _unitOfWork.Conversations.IsUserParticipantAsync(conversationId, senderId);
+        var isParticipant =
+            await _unitOfWork.Conversations.IsUserParticipantAsync(conversationId, senderId, cancellationToken);
         if (!isParticipant)
         {
             throw new InvalidOperationException(ErrorMessages.NotParticipantInConversation);
@@ -56,11 +59,11 @@ public class MessageService : IMessageService
             IsDeleted = false
         };
 
-        await _unitOfWork.Messages.AddAsync(message);
-        await _unitOfWork.SaveChangesAsync();
+        await _unitOfWork.Messages.AddAsync(message, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         // Reload message with sender info
-        var savedMessage = await _unitOfWork.Messages.GetByIdAsync(message.Id);
+        var savedMessage = await _unitOfWork.Messages.GetByIdAsync(message.Id, cancellationToken);
 
         _logger.LogInformation("Message sent in conversation {ConversationId} by {SenderId}", conversationId, senderId);
 
@@ -81,15 +84,18 @@ public class MessageService : IMessageService
     public async Task<PagedResult<MessageDto>> GetConversationMessagesAsync(
         int conversationId,
         Guid userId,
-        QueryParameters parameters)
+        QueryParameters parameters,
+        CancellationToken cancellationToken = default)
     {
-        var isParticipant = await _unitOfWork.Conversations.IsUserParticipantAsync(conversationId, userId);
+        var isParticipant =
+            await _unitOfWork.Conversations.IsUserParticipantAsync(conversationId, userId, cancellationToken);
         if (!isParticipant)
         {
             throw new InvalidOperationException(ErrorMessages.NotParticipantInConversation);
         }
 
-        var pagedMessages = await _unitOfWork.Messages.GetConversationMessagesAsync(conversationId, parameters);
+        var pagedMessages =
+            await _unitOfWork.Messages.GetConversationMessagesAsync(conversationId, parameters, cancellationToken);
 
         var messageDtos = pagedMessages.Items.Select(m => new MessageDto
         {
@@ -111,9 +117,10 @@ public class MessageService : IMessageService
             pagedMessages.PageSize);
     }
 
-    public async Task<BasicResponse> DeleteMessageAsync(int messageId, Guid userId)
+    public async Task<BasicResponse> DeleteMessageAsync(int messageId, Guid userId,
+        CancellationToken cancellationToken = default)
     {
-        var message = await _unitOfWork.Messages.GetByIdAsync(messageId);
+        var message = await _unitOfWork.Messages.GetByIdAsync(messageId, cancellationToken);
         if (message == null)
         {
             return new BasicResponse
@@ -135,7 +142,7 @@ public class MessageService : IMessageService
         message.IsDeleted = true;
         message.Content = "[Message deleted]";
         _unitOfWork.Messages.Update(message);
-        await _unitOfWork.SaveChangesAsync();
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Message deleted: {MessageId}", messageId);
 
@@ -146,9 +153,11 @@ public class MessageService : IMessageService
         };
     }
 
-    public async Task<BasicResponse> MarkMessagesAsReadAsync(int conversationId, Guid userId)
+    public async Task<BasicResponse> MarkMessagesAsReadAsync(int conversationId, Guid userId,
+        CancellationToken cancellationToken = default)
     {
-        var isParticipant = await _unitOfWork.Conversations.IsUserParticipantAsync(conversationId, userId);
+        var isParticipant =
+            await _unitOfWork.Conversations.IsUserParticipantAsync(conversationId, userId, cancellationToken);
         if (!isParticipant)
         {
             return new BasicResponse
@@ -158,7 +167,8 @@ public class MessageService : IMessageService
             };
         }
 
-        var unreadMessages = await _unitOfWork.Messages.GetUnreadMessagesAsync(conversationId, userId);
+        var unreadMessages =
+            await _unitOfWork.Messages.GetUnreadMessagesAsync(conversationId, userId, cancellationToken);
 
         if (unreadMessages.Any())
         {
@@ -172,9 +182,9 @@ public class MessageService : IMessageService
 
             var lastMessage = unreadMessages.OrderByDescending(m => m.Id).First();
             await _unitOfWork.Conversations.UpdateParticipantLastReadMessageAsync(
-                conversationId, userId, lastMessage.Id);
+                conversationId, userId, lastMessage.Id, cancellationToken);
 
-            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             _logger.LogInformation("Marked {Count} messages as read in conversation {ConversationId}",
                 unreadMessages.Count, conversationId);
@@ -187,8 +197,9 @@ public class MessageService : IMessageService
         };
     }
 
-    public async Task<int> GetUnreadCountAsync(int conversationId, Guid userId)
+    public async Task<int> GetUnreadCountAsync(int conversationId, Guid userId,
+        CancellationToken cancellationToken = default)
     {
-        return await _unitOfWork.Messages.GetUnreadCountAsync(conversationId, userId);
+        return await _unitOfWork.Messages.GetUnreadCountAsync(conversationId, userId, cancellationToken);
     }
 }

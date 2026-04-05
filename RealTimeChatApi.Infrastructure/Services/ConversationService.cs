@@ -21,9 +21,9 @@ public class ConversationService : IConversationService
         _dateTimeProvider = dateTimeProvider;
     }
 
-    public async Task<List<ConversationListDto>> GetUserConversationsAsync(Guid userId)
+    public async Task<List<ConversationListDto>> GetUserConversationsAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var conversations = await _unitOfWork.Conversations.GetUserConversationsAsync(userId);
+        var conversations = await _unitOfWork.Conversations.GetUserConversationsAsync(userId, cancellationToken);
 
         var conversationDtos = new List<ConversationListDto>();
 
@@ -33,7 +33,7 @@ public class ConversationService : IConversationService
             if (otherUser == null) continue;
 
             var lastMessage = conversation.Messages.OrderByDescending(m => m.SentAtUtc).FirstOrDefault();
-            var unreadCount = await _unitOfWork.Messages.GetUnreadCountAsync(conversation.Id, userId);
+            var unreadCount = await _unitOfWork.Messages.GetUnreadCountAsync(conversation.Id, userId, cancellationToken);
 
             conversationDtos.Add(new ConversationListDto
             {
@@ -52,9 +52,9 @@ public class ConversationService : IConversationService
         return conversationDtos.OrderByDescending(c => c.LastMessageTime ?? c.CreatedAtUtc).ToList();
     }
 
-    public async Task<ConversationDetailDto?> GetConversationByIdAsync(int conversationId, Guid userId)
+    public async Task<ConversationDetailDto?> GetConversationByIdAsync(int conversationId, Guid userId, CancellationToken cancellationToken = default)
     {
-        var conversation = await _unitOfWork.Conversations.GetConversationWithMessagesAsync(conversationId, userId);
+        var conversation = await _unitOfWork.Conversations.GetConversationWithMessagesAsync(conversationId, userId, cancellationToken);
         if (conversation == null)
         {
             _logger.LogWarning("Conversation not found: {ConversationId}", conversationId);
@@ -92,7 +92,7 @@ public class ConversationService : IConversationService
         };
     }
 
-    public async Task<ConversationDetailDto> StartConversationAsync(Guid currentUserId, Guid otherUserId)
+    public async Task<ConversationDetailDto> StartConversationAsync(Guid currentUserId, Guid otherUserId, CancellationToken cancellationToken = default)
     {
         if (currentUserId == otherUserId)
         {
@@ -100,17 +100,17 @@ public class ConversationService : IConversationService
         }
 
         // Check if conversation already exists
-        var existingConversation = await _unitOfWork.Conversations.GetConversationBetweenUsersAsync(currentUserId, otherUserId);
+        var existingConversation = await _unitOfWork.Conversations.GetConversationBetweenUsersAsync(currentUserId, otherUserId, cancellationToken);
         if (existingConversation != null)
         {
-            return (await GetConversationByIdAsync(existingConversation.Id, currentUserId))!;
+            return (await GetConversationByIdAsync(existingConversation.Id, currentUserId, cancellationToken))!;
         }
 
         await _unitOfWork.BeginTransactionAsync();
 
         var conversation = new Conversation();
-        await _unitOfWork.Conversations.AddAsync(conversation);
-        await _unitOfWork.SaveChangesAsync();
+        await _unitOfWork.Conversations.AddAsync(conversation, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var participant1 = new ConversationParticipant
         {
@@ -129,17 +129,17 @@ public class ConversationService : IConversationService
         conversation.Participants.Add(participant1);
         conversation.Participants.Add(participant2);
 
-        await _unitOfWork.SaveChangesAsync();
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
         await _unitOfWork.CommitTransactionAsync();
 
         _logger.LogInformation("Conversation created between {User1} and {User2}", currentUserId, otherUserId);
 
-        return (await GetConversationByIdAsync(conversation.Id, currentUserId))!;
+        return (await GetConversationByIdAsync(conversation.Id, currentUserId, cancellationToken))!;
     }
 
-    public async Task<BasicResponse> DeleteConversationAsync(int conversationId, Guid userId)
+    public async Task<BasicResponse> DeleteConversationAsync(int conversationId, Guid userId, CancellationToken cancellationToken = default)
     {
-        var conversation = await _unitOfWork.Conversations.GetByIdAsync(conversationId);
+        var conversation = await _unitOfWork.Conversations.GetByIdAsync(conversationId, cancellationToken);
         if (conversation == null)
         {
             return new BasicResponse
@@ -149,7 +149,7 @@ public class ConversationService : IConversationService
             };
         }
 
-        var isParticipant = await _unitOfWork.Conversations.IsUserParticipantAsync(conversationId, userId);
+        var isParticipant = await _unitOfWork.Conversations.IsUserParticipantAsync(conversationId, userId, cancellationToken);
         if (!isParticipant)
         {
             return new BasicResponse
@@ -160,7 +160,7 @@ public class ConversationService : IConversationService
         }
 
         _unitOfWork.Conversations.Delete(conversation);
-        await _unitOfWork.SaveChangesAsync();
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Conversation deleted: {ConversationId}", conversationId);
 

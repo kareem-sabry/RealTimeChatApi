@@ -55,28 +55,28 @@ public class ChatHub : Hub
         _logger.LogInformation("User left conversation {ConversationId}", conversationId);
     }
 
-    public async Task SendMessage(int conversationId, string content)
+    public async Task SendMessage(int conversationId, string content, CancellationToken cancellationToken = default)
     {
         var userIdClaim = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (!Guid.TryParse(userIdClaim, out var userId))
         {
-            await Clients.Caller.SendAsync("Error", "Invalid user context");
+            await Clients.Caller.SendAsync("Error", "Invalid user context", cancellationToken: cancellationToken);
             return;
         }
 
         try
         {
-            var message = await _messageService.SendMessageAsync(conversationId, userId, content);
+            var message = await _messageService.SendMessageAsync(conversationId, userId, content, cancellationToken);
 
             // Send to all participants in the conversation
             await Clients.Group($"conversation_{conversationId}")
-                .SendAsync("ReceiveMessage", message);
+                .SendAsync("ReceiveMessage", message, cancellationToken: cancellationToken);
 
             _logger.LogInformation("Message sent in conversation {ConversationId}", conversationId);
         }
         catch (Exception ex)
         {
-            await Clients.Caller.SendAsync("Error", ex.Message);
+            await Clients.Caller.SendAsync("Error", ex.Message, cancellationToken: cancellationToken);
         }
     }
 

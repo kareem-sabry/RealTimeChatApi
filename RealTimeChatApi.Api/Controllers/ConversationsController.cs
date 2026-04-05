@@ -23,7 +23,7 @@ public class ConversationsController : ControllerBase
     [HttpGet]
     [ProducesResponseType(typeof(List<ConversationListDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> GetUserConversations()
+    public async Task<IActionResult> GetUserConversations(CancellationToken cancellationToken)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrWhiteSpace(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
@@ -35,7 +35,7 @@ public class ConversationsController : ControllerBase
             });
         }
 
-        var conversations = await _conversationService.GetUserConversationsAsync(userId);
+        var conversations = await _conversationService.GetUserConversationsAsync(userId, cancellationToken);
         return Ok(conversations);
     }
 
@@ -43,7 +43,7 @@ public class ConversationsController : ControllerBase
     [ProducesResponseType(typeof(ConversationDetailDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetConversationById(int id)
+    public async Task<IActionResult> GetConversationById(int id, CancellationToken cancellationToken)
     {
         if (id <= 0)
         {
@@ -64,7 +64,7 @@ public class ConversationsController : ControllerBase
             });
         }
 
-        var conversation = await _conversationService.GetConversationByIdAsync(id, userId);
+        var conversation = await _conversationService.GetConversationByIdAsync(id, userId, cancellationToken);
         if (conversation == null)
         {
             return NotFound(new BasicResponse
@@ -81,7 +81,8 @@ public class ConversationsController : ControllerBase
     [ProducesResponseType(typeof(ConversationDetailDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> StartConversation([FromBody] StartConversationRequest request)
+    public async Task<IActionResult> StartConversation([FromBody] StartConversationRequest request,
+        CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
@@ -98,7 +99,8 @@ public class ConversationsController : ControllerBase
 
         try
         {
-            var conversation = await _conversationService.StartConversationAsync(userId, request.OtherUserId);
+            var conversation =
+                await _conversationService.StartConversationAsync(userId, request.OtherUserId, cancellationToken);
             return CreatedAtAction(nameof(GetConversationById), new { id = conversation.Id }, conversation);
         }
         catch (InvalidOperationException ex)
@@ -115,32 +117,34 @@ public class ConversationsController : ControllerBase
     [ProducesResponseType(typeof(BasicResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> DeleteConversation(int id)
+    public async Task<IActionResult> DeleteConversation(int id, CancellationToken cancellationToken)
     {
-        if (id <= 0)
         {
-            return BadRequest(new BasicResponse
+            if (id <= 0)
             {
-                Succeeded = false,
-                Message = ErrorMessages.InvalidId
-            });
-        }
+                return BadRequest(new BasicResponse
+                {
+                    Succeeded = false,
+                    Message = ErrorMessages.InvalidId
+                });
+            }
 
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrWhiteSpace(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-        {
-            return Unauthorized(new BasicResponse
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrWhiteSpace(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
             {
-                Succeeded = false,
-                Message = ErrorMessages.InvalidUserContext
-            });
+                return Unauthorized(new BasicResponse
+                {
+                    Succeeded = false,
+                    Message = ErrorMessages.InvalidUserContext
+                });
+            }
+
+            var response = await _conversationService.DeleteConversationAsync(id, userId, cancellationToken);
+
+            if (response.Succeeded)
+                return Ok(response);
+
+            return NotFound(response);
         }
-
-        var response = await _conversationService.DeleteConversationAsync(id, userId);
-
-        if (response.Succeeded)
-            return Ok(response);
-
-        return NotFound(response);
     }
 }
