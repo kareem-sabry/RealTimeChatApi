@@ -1,5 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using RealTimeChatApi.Application.Dtos.Message;
 using RealTimeChatApi.Application.Dtos.User;
 using RealTimeChatApi.Application.Interfaces;
@@ -7,7 +6,6 @@ using RealTimeChatApi.Core.Constants;
 using RealTimeChatApi.Core.Entities;
 using RealTimeChatApi.Core.Enums;
 using RealTimeChatApi.Core.Models;
-using RealTimeChatApi.Infrastructure.Data;
 
 namespace RealTimeChatApi.Infrastructure.Services;
 
@@ -16,18 +14,15 @@ public class MessageService : IMessageService
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<MessageService> _logger;
     private readonly IDateTimeProvider _dateTimeProvider;
-    private readonly AppDbContext _context;
 
     public MessageService(
         IUnitOfWork unitOfWork,
         ILogger<MessageService> logger,
-        IDateTimeProvider dateTimeProvider,
-        AppDbContext context)
+        IDateTimeProvider dateTimeProvider)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
         _dateTimeProvider = dateTimeProvider;
-        _context = context;
     }
 
     public async Task<MessageDto> SendMessageAsync(int conversationId, Guid senderId, string content)
@@ -167,21 +162,11 @@ public class MessageService : IMessageService
             foreach (var message in unreadMessages)
             {
                 message.Status = MessageStatus.Read;
-                _unitOfWork.Messages.Update(message);
             }
 
-            // Update LastReadMessageId for the participant
-            var participant = await _context.ConversationParticipants
-                .FirstOrDefaultAsync(cp => cp.ConversationId == conversationId && cp.UserId == userId);
-
-            if (participant != null)
-            {
-                var lastMessage = unreadMessages.OrderByDescending(m => m.Id).FirstOrDefault();
-                if (lastMessage != null)
-                {
-                    participant.LastReadMessageId = lastMessage.Id;
-                }
-            }
+            var lastMessage = unreadMessages.OrderByDescending(m => m.Id).First();
+            await _unitOfWork.Conversations.UpdateParticipantLastReadMessageAsync(
+                conversationId, userId, lastMessage.Id);
 
             await _unitOfWork.SaveChangesAsync();
 

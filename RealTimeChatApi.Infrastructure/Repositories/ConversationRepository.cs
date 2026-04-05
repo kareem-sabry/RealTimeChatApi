@@ -59,4 +59,16 @@ public class ConversationRepository : IConversationRepository
         return await _context.ConversationParticipants.AnyAsync(cp =>
             cp.ConversationId == conversationId && cp.UserId == userId);
     }
+
+    public async Task UpdateParticipantLastReadMessageAsync(int conversationId, Guid userId, int lastReadMessageId)
+    {
+        var participant = await _context.ConversationParticipants
+            .FirstOrDefaultAsync(cp => cp.ConversationId == conversationId && cp.UserId == userId);
+
+        if (participant != null)
+        {
+            participant.LastReadMessageId = lastReadMessageId;
+        }
+    }
+}
 }
