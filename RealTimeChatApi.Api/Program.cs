@@ -17,11 +17,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddUserSecrets<Program>();
 
-builder.Services.AddDbContext<AppDbContext>((serviceProvider, options) =>
+builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    var dateTimeProvider = serviceProvider.GetRequiredService<IDateTimeProvider>();
-    var httpContextAccessor = serviceProvider.GetRequiredService<IHttpContextAccessor>();
-    
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("DefaultConnection"),
         sqlOptions => sqlOptions.MigrationsAssembly("RealTimeChatApi.Infrastructure")
@@ -162,8 +159,6 @@ builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IConversationService, ConversationService>();
 builder.Services.AddScoped<IMessageService, MessageService>();
 builder.Services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
-
-builder.Services.AddScoped<IUserRepository, UserRepository>();
 
 builder.Services.AddScoped<IAuthTokenProcessor, AuthTokenProcessorService>();
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
