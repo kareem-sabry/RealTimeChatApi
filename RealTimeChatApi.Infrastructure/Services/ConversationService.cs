@@ -16,7 +16,8 @@ public class ConversationService : IConversationService
     private readonly IDateTimeProvider _dateTimeProvider;
     private readonly IMapper _mapper;
 
-    public ConversationService(IUnitOfWork unitOfWork, ILogger<ConversationService> logger, IDateTimeProvider dateTimeProvider, IMapper mapper)
+    public ConversationService(IUnitOfWork unitOfWork, ILogger<ConversationService> logger,
+        IDateTimeProvider dateTimeProvider, IMapper mapper)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
@@ -24,7 +25,8 @@ public class ConversationService : IConversationService
         _mapper = mapper;
     }
 
-    public async Task<List<ConversationListDto>> GetUserConversationsAsync(Guid userId, CancellationToken cancellationToken = default)
+    public async Task<List<ConversationListDto>> GetUserConversationsAsync(Guid userId,
+        CancellationToken cancellationToken = default)
     {
         var conversations = await _unitOfWork.Conversations.GetUserConversationsAsync(userId, cancellationToken);
 
@@ -36,7 +38,8 @@ public class ConversationService : IConversationService
             if (otherUser == null) continue;
 
             var lastMessage = conversation.Messages.OrderByDescending(m => m.SentAtUtc).FirstOrDefault();
-            var unreadCount = await _unitOfWork.Messages.GetUnreadCountAsync(conversation.Id, userId, cancellationToken);
+            var unreadCount =
+                await _unitOfWork.Messages.GetUnreadCountAsync(conversation.Id, userId, cancellationToken);
 
             conversationDtos.Add(new ConversationListDto
             {
@@ -55,9 +58,11 @@ public class ConversationService : IConversationService
         return conversationDtos.OrderByDescending(c => c.LastMessageTime ?? c.CreatedAtUtc).ToList();
     }
 
-    public async Task<ConversationDetailDto?> GetConversationByIdAsync(int conversationId, Guid userId, CancellationToken cancellationToken = default)
+    public async Task<ConversationDetailDto?> GetConversationByIdAsync(int conversationId, Guid userId,
+        CancellationToken cancellationToken = default)
     {
-        var conversation = await _unitOfWork.Conversations.GetConversationWithMessagesAsync(conversationId, userId, cancellationToken);
+        var conversation =
+            await _unitOfWork.Conversations.GetConversationWithMessagesAsync(conversationId, userId, cancellationToken);
         if (conversation == null)
         {
             _logger.LogWarning("Conversation not found: {ConversationId}", conversationId);
@@ -85,7 +90,8 @@ public class ConversationService : IConversationService
         };
     }
 
-    public async Task<ConversationDetailDto> StartConversationAsync(Guid currentUserId, Guid otherUserId, CancellationToken cancellationToken = default)
+    public async Task<ConversationDetailDto> StartConversationAsync(Guid currentUserId, Guid otherUserId,
+        CancellationToken cancellationToken = default)
     {
         if (currentUserId == otherUserId)
         {
@@ -93,44 +99,54 @@ public class ConversationService : IConversationService
         }
 
         // Check if conversation already exists
-        var existingConversation = await _unitOfWork.Conversations.GetConversationBetweenUsersAsync(currentUserId, otherUserId, cancellationToken);
+        var existingConversation =
+            await _unitOfWork.Conversations.GetConversationBetweenUsersAsync(currentUserId, otherUserId,
+                cancellationToken);
         if (existingConversation != null)
         {
             return (await GetConversationByIdAsync(existingConversation.Id, currentUserId, cancellationToken))!;
         }
 
         await _unitOfWork.BeginTransactionAsync();
-
-        var conversation = new Conversation();
-        await _unitOfWork.Conversations.AddAsync(conversation, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        var participant1 = new ConversationParticipant
+        try
         {
-            ConversationId = conversation.Id,
-            UserId = currentUserId,
-            JoinedAtUtc = _dateTimeProvider.UtcNow
-        };
+            var conversation = new Conversation();
+            await _unitOfWork.Conversations.AddAsync(conversation, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        var participant2 = new ConversationParticipant
+            var participant1 = new ConversationParticipant
+            {
+                ConversationId = conversation.Id,
+                UserId = currentUserId,
+                JoinedAtUtc = _dateTimeProvider.UtcNow
+            };
+
+            var participant2 = new ConversationParticipant
+            {
+                ConversationId = conversation.Id,
+                UserId = otherUserId,
+                JoinedAtUtc = _dateTimeProvider.UtcNow
+            };
+
+            conversation.Participants.Add(participant1);
+            conversation.Participants.Add(participant2);
+
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync();
+        }
+        catch
         {
-            ConversationId = conversation.Id,
-            UserId = otherUserId,
-            JoinedAtUtc = _dateTimeProvider.UtcNow
-        };
-
-        conversation.Participants.Add(participant1);
-        conversation.Participants.Add(participant2);
-
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-        await _unitOfWork.CommitTransactionAsync();
+            await _unitOfWork.RollbackTransactionAsync();
+            throw;
+        }
 
         _logger.LogInformation("Conversation created between {User1} and {User2}", currentUserId, otherUserId);
 
         return (await GetConversationByIdAsync(conversation.Id, currentUserId, cancellationToken))!;
     }
 
-    public async Task<BasicResponse> DeleteConversationAsync(int conversationId, Guid userId, CancellationToken cancellationToken = default)
+    public async Task<BasicResponse> DeleteConversationAsync(int conversationId, Guid userId,
+        CancellationToken cancellationToken = default)
     {
         var conversation = await _unitOfWork.Conversations.GetByIdAsync(conversationId, cancellationToken);
         if (conversation == null)
@@ -142,7 +158,8 @@ public class ConversationService : IConversationService
             };
         }
 
-        var isParticipant = await _unitOfWork.Conversations.IsUserParticipantAsync(conversationId, userId, cancellationToken);
+        var isParticipant =
+            await _unitOfWork.Conversations.IsUserParticipantAsync(conversationId, userId, cancellationToken);
         if (!isParticipant)
         {
             return new BasicResponse
