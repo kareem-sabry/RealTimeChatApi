@@ -15,33 +15,34 @@ public class MessageRepository : IMessageRepository
         _context = context;
     }
 
-    public async Task<Message?> GetByIdAsync(int id)
+    public async Task<Message?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         return await _context.Messages
             .Include(m => m.Sender)
-            .FirstOrDefaultAsync(m => m.Id == id);
+            .FirstOrDefaultAsync(m => m.Id == id, cancellationToken);
     }
 
-    public async Task<PagedResult<Message>> GetConversationMessagesAsync(int conversationId, QueryParameters parameters)
+    public async Task<PagedResult<Message>> GetConversationMessagesAsync(int conversationId, QueryParameters parameters,
+        CancellationToken cancellationToken = default)
     {
         var query = _context.Messages
             .Include(m => m.Sender)
             .Where(m => m.ConversationId == conversationId && !m.IsDeleted)
             .OrderByDescending(m => m.SentAtUtc);
 
-        var totalCount = await query.CountAsync();
+        var totalCount = await query.CountAsync(cancellationToken);
 
         var messages = await query
             .Skip((parameters.PageNumber - 1) * parameters.PageSize)
             .Take(parameters.PageSize)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         return new PagedResult<Message>(messages, totalCount, parameters.PageNumber, parameters.PageSize);
     }
 
-    public async Task AddAsync(Message message)
+    public async Task AddAsync(Message message, CancellationToken cancellationToken = default)
     {
-        await _context.Messages.AddAsync(message);
+        await _context.Messages.AddAsync(message, cancellationToken);
     }
 
     public void Update(Message message)
@@ -54,10 +55,11 @@ public class MessageRepository : IMessageRepository
         _context.Messages.Remove(message);
     }
 
-    public async Task<int> GetUnreadCountAsync(int conversationId, Guid userId)
+    public async Task<int> GetUnreadCountAsync(int conversationId, Guid userId,
+        CancellationToken cancellationToken = default)
     {
         var participant = await _context.ConversationParticipants
-            .FirstOrDefaultAsync(cp => cp.ConversationId == conversationId && cp.UserId == userId);
+            .FirstOrDefaultAsync(cp => cp.ConversationId == conversationId && cp.UserId == userId, cancellationToken);
 
         if (participant == null)
             return 0;
@@ -66,16 +68,17 @@ public class MessageRepository : IMessageRepository
 
         return await _context.Messages
             .Where(m => m.ConversationId == conversationId &&
-                       m.Id > lastReadMessageId &&
-                       m.SenderId != userId &&
-                       !m.IsDeleted)
-            .CountAsync();
+                        m.Id > lastReadMessageId &&
+                        m.SenderId != userId &&
+                        !m.IsDeleted)
+            .CountAsync(cancellationToken);
     }
 
-    public async Task<List<Message>> GetUnreadMessagesAsync(int conversationId, Guid userId)
+    public async Task<List<Message>> GetUnreadMessagesAsync(int conversationId, Guid userId,
+        CancellationToken cancellationToken = default)
     {
         var participant = await _context.ConversationParticipants
-            .FirstOrDefaultAsync(cp => cp.ConversationId == conversationId && cp.UserId == userId);
+            .FirstOrDefaultAsync(cp => cp.ConversationId == conversationId && cp.UserId == userId, cancellationToken);
 
         if (participant == null)
             return new List<Message>();
@@ -84,9 +87,9 @@ public class MessageRepository : IMessageRepository
 
         return await _context.Messages
             .Where(m => m.ConversationId == conversationId &&
-                       m.Id > lastReadMessageId &&
-                       m.SenderId != userId &&
-                       !m.IsDeleted)
-            .ToListAsync();
+                        m.Id > lastReadMessageId &&
+                        m.SenderId != userId &&
+                        !m.IsDeleted)
+            .ToListAsync(cancellationToken);
     }
 }

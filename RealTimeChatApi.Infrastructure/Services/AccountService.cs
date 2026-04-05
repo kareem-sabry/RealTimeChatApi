@@ -29,7 +29,7 @@ public class AccountService : IAccountService
         _dateTimeProvider = dateTimeProvider;
     }
 
-    public async Task<BasicResponse> RegisterAsync(RegisterRequest request)
+    public async Task<BasicResponse> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)
     {
         var userExists = await _userManager.FindByEmailAsync(request.Email) != null;
         if (userExists)
@@ -63,7 +63,7 @@ public class AccountService : IAccountService
         };
     }
 
-    public async Task<LoginResponse> LoginAsync(LoginRequest request)
+    public async Task<LoginResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
     {
         var user = await _userManager.FindByEmailAsync(request.Email);
         if (user == null || !await _userManager.CheckPasswordAsync(user, request.Password))
@@ -99,7 +99,7 @@ public class AccountService : IAccountService
         };
     }
 
-    public async Task<RefreshTokenResponse> RefreshTokenAsync(RefreshTokenRequest request)
+    public async Task<RefreshTokenResponse> RefreshTokenAsync(RefreshTokenRequest request, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.RefreshToken))
         {
@@ -110,7 +110,7 @@ public class AccountService : IAccountService
             };
         }
 
-        var user = await _unitOfWork.Users.GetUserByRefreshTokenAsync(request.RefreshToken);
+        var user = await _unitOfWork.Users.GetUserByRefreshTokenAsync(request.RefreshToken, cancellationToken);
         if (user == null)
         {
             _logger.LogWarning("Invalid refresh token attempt");
@@ -152,7 +152,7 @@ public class AccountService : IAccountService
         };
     }
 
-    public async Task<BasicResponse> LogoutAsync(string userEmail)
+    public async Task<BasicResponse> LogoutAsync(string userEmail, CancellationToken cancellationToken = default)
     {
         var user = await _userManager.FindByEmailAsync(userEmail);
         if (user == null)
@@ -181,9 +181,9 @@ public class AccountService : IAccountService
         };
     }
 
-    public async Task<List<UserDto>> SearchUsersAsync(string searchTerm, Guid currentUserId)
+    public async Task<List<UserDto>> SearchUsersAsync(string searchTerm, Guid currentUserId, CancellationToken cancellationToken = default)
     {
-        var users = await _unitOfWork.Users.SearchUsersAsync(searchTerm, currentUserId);
+        var users = await _unitOfWork.Users.SearchUsersAsync(searchTerm, currentUserId, cancellationToken);
 
         return users.Select(u => new UserDto
         {

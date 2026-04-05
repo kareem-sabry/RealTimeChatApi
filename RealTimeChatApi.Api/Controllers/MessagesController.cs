@@ -25,7 +25,8 @@ public class MessagesController : ControllerBase
     [ProducesResponseType(typeof(PagedResult<MessageDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> GetMessages(int conversationId, [FromQuery] QueryParameters parameters)
+    public async Task<IActionResult> GetMessages(int conversationId, [FromQuery] QueryParameters parameters,
+        CancellationToken cancellationToken)
     {
         if (conversationId <= 0)
         {
@@ -48,7 +49,9 @@ public class MessagesController : ControllerBase
 
         try
         {
-            var messages = await _messageService.GetConversationMessagesAsync(conversationId, userId, parameters);
+            var messages =
+                await _messageService.GetConversationMessagesAsync(conversationId, userId, parameters,
+                    cancellationToken);
             return Ok(messages);
         }
         catch (InvalidOperationException ex)
@@ -64,23 +67,25 @@ public class MessagesController : ControllerBase
     [HttpPost("mark-read")]
     [ProducesResponseType(typeof(BasicResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> MarkAsRead(int conversationId)
+    public async Task<IActionResult> MarkAsRead(int conversationId, CancellationToken cancellationToken)
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrWhiteSpace(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
         {
-            return Unauthorized(new BasicResponse
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrWhiteSpace(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
             {
-                Succeeded = false,
-                Message = ErrorMessages.InvalidUserContext
-            });
+                return Unauthorized(new BasicResponse
+                {
+                    Succeeded = false,
+                    Message = ErrorMessages.InvalidUserContext
+                });
+            }
+
+            var response = await _messageService.MarkMessagesAsReadAsync(conversationId, userId, cancellationToken);
+
+            if (response.Succeeded)
+                return Ok(response);
+
+            return BadRequest(response);
         }
-
-        var response = await _messageService.MarkMessagesAsReadAsync(conversationId, userId);
-
-        if (response.Succeeded)
-            return Ok(response);
-
-        return BadRequest(response);
     }
 }

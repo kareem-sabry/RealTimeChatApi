@@ -22,12 +22,12 @@ public class AuthController : ControllerBase
     [AllowAnonymous]
     [ProducesResponseType(typeof(BasicResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(BasicResponse), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+    public async Task<IActionResult> Register([FromBody] RegisterRequest request, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        var response = await _accountService.RegisterAsync(request);
+        var response = await _accountService.RegisterAsync(request, cancellationToken);
 
         if (response.Succeeded)
             return Ok(response);
@@ -39,12 +39,12 @@ public class AuthController : ControllerBase
     [AllowAnonymous]
     [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Login([FromBody] LoginRequest request)
+    public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        var response = await _accountService.LoginAsync(request);
+        var response = await _accountService.LoginAsync(request, cancellationToken);
 
         if (response.Succeeded)
             return Ok(response);
@@ -56,12 +56,12 @@ public class AuthController : ControllerBase
     [AllowAnonymous]
     [ProducesResponseType(typeof(RefreshTokenResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(RefreshTokenResponse), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
+    public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        var response = await _accountService.RefreshTokenAsync(request);
+        var response = await _accountService.RefreshTokenAsync(request, cancellationToken);
 
         if (!response.Succeeded)
             return Unauthorized(response);
@@ -73,7 +73,7 @@ public class AuthController : ControllerBase
     [HttpPost("logout")]
     [ProducesResponseType(typeof(BasicResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> Logout()
+    public async Task<IActionResult> Logout(CancellationToken cancellationToken)
     {
         var email = User.FindFirstValue(ClaimTypes.Email);
         if (string.IsNullOrWhiteSpace(email))
@@ -85,7 +85,7 @@ public class AuthController : ControllerBase
             });
         }
 
-        var response = await _accountService.LogoutAsync(email);
+        var response = await _accountService.LogoutAsync(email, cancellationToken);
 
         if (response.Succeeded)
             return Ok(response);
