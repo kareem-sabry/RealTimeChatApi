@@ -1,4 +1,5 @@
-﻿using System.Security.Claims;
+﻿using System.Collections.Concurrent;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using RealTimeChatApi.Application.Interfaces;
@@ -10,7 +11,7 @@ public class ChatHub : Hub
 {
     private readonly IMessageService _messageService;
     private readonly ILogger<ChatHub> _logger;
-    private static readonly Dictionary<Guid, string> _userConnections = new();
+    private static readonly ConcurrentDictionary<Guid, string> _userConnections = new();
 
     public ChatHub(IMessageService messageService, ILogger<ChatHub> logger)
     {
@@ -35,7 +36,7 @@ public class ChatHub : Hub
         var userIdClaim = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (Guid.TryParse(userIdClaim, out var userId))
         {
-            _userConnections.Remove(userId);
+            _userConnections.TryRemove(userId, out _);
             _logger.LogInformation("User {UserId} disconnected", userId);
         }
 
