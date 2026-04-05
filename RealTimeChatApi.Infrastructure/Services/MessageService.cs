@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using RealTimeChatApi.Application.Dtos.Message;
 using RealTimeChatApi.Application.Dtos.User;
@@ -16,16 +17,18 @@ public class MessageService : IMessageService
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<MessageService> _logger;
     private readonly IDateTimeProvider _dateTimeProvider;
+    private readonly IMapper _mapper;
 
     public MessageService(
         IUnitOfWork unitOfWork,
         ILogger<MessageService> logger,
-        IDateTimeProvider dateTimeProvider
-    )
+        IDateTimeProvider dateTimeProvider,
+        IMapper mapper)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
         _dateTimeProvider = dateTimeProvider;
+        _mapper = mapper;
     }
 
     public async Task<MessageDto> SendMessageAsync(int conversationId, Guid senderId, string content,
@@ -67,18 +70,7 @@ public class MessageService : IMessageService
 
         _logger.LogInformation("Message sent in conversation {ConversationId} by {SenderId}", conversationId, senderId);
 
-        return new MessageDto
-        {
-            Id = savedMessage!.Id,
-            ConversationId = savedMessage.ConversationId,
-            SenderId = savedMessage.SenderId,
-            SenderName = savedMessage.Sender.FullName,
-            Content = savedMessage.Content,
-            Status = savedMessage.Status,
-            IsDeleted = savedMessage.IsDeleted,
-            SentAtUtc = savedMessage.SentAtUtc,
-            EditedAtUtc = savedMessage.EditedAtUtc
-        };
+        return _mapper.Map<MessageDto>(savedMessage!);
     }
 
     public async Task<PagedResult<MessageDto>> GetConversationMessagesAsync(
@@ -97,19 +89,8 @@ public class MessageService : IMessageService
         var pagedMessages =
             await _unitOfWork.Messages.GetConversationMessagesAsync(conversationId, parameters, cancellationToken);
 
-        var messageDtos = pagedMessages.Items.Select(m => new MessageDto
-        {
-            Id = m.Id,
-            ConversationId = m.ConversationId,
-            SenderId = m.SenderId,
-            SenderName = m.Sender.FullName,
-            Content = m.Content,
-            Status = m.Status,
-            IsDeleted = m.IsDeleted,
-            SentAtUtc = m.SentAtUtc,
-            EditedAtUtc = m.EditedAtUtc
-        }).ToList();
-
+        var messageDtos = _mapper.Map<List<MessageDto>>(pagedMessages.Items);
+        
         return new PagedResult<MessageDto>(
             messageDtos,
             pagedMessages.TotalCount,
