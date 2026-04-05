@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using AutoMapper;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
 using RealTimeChatApi.Application.Dtos.User;
 using RealTimeChatApi.Application.Interfaces;
@@ -14,19 +15,22 @@ public class AccountService : IAccountService
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<AccountService> _logger;
     private readonly IDateTimeProvider _dateTimeProvider;
+    private readonly IMapper _mapper;
 
     public AccountService(
         IAuthTokenProcessor authTokenProcessor,
         UserManager<User> userManager,
         IUnitOfWork unitOfWork,
         ILogger<AccountService> logger,
-        IDateTimeProvider dateTimeProvider)
+        IDateTimeProvider dateTimeProvider,
+        IMapper mapper)
     {
         _authTokenProcessor = authTokenProcessor;
         _userManager = userManager;
         _unitOfWork = unitOfWork;
         _logger = logger;
         _dateTimeProvider = dateTimeProvider;
+        _mapper = mapper;
     }
 
     public async Task<BasicResponse> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)
@@ -184,15 +188,6 @@ public class AccountService : IAccountService
     public async Task<List<UserDto>> SearchUsersAsync(string searchTerm, Guid currentUserId, CancellationToken cancellationToken = default)
     {
         var users = await _unitOfWork.Users.SearchUsersAsync(searchTerm, currentUserId, cancellationToken);
-
-        return users.Select(u => new UserDto
-        {
-            Id = u.Id,
-            Email = u.Email!,
-            FirstName = u.FirstName,
-            LastName = u.LastName,
-            IsOnline = u.IsOnline,
-            LastSeenAtUtc = u.LastSeenAtUtc
-        }).ToList();
+        return _mapper.Map<List<UserDto>>(users);
     }
 }

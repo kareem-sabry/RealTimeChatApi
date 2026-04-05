@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using AutoMapper;
+using Microsoft.Extensions.Logging;
 using RealTimeChatApi.Application.Dtos.Conversation;
 using RealTimeChatApi.Application.Dtos.Message;
 using RealTimeChatApi.Application.Dtos.User;
@@ -13,12 +14,14 @@ public class ConversationService : IConversationService
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<ConversationService> _logger;
     private readonly IDateTimeProvider _dateTimeProvider;
+    private readonly IMapper _mapper;
 
-    public ConversationService(IUnitOfWork unitOfWork, ILogger<ConversationService> logger, IDateTimeProvider dateTimeProvider)
+    public ConversationService(IUnitOfWork unitOfWork, ILogger<ConversationService> logger, IDateTimeProvider dateTimeProvider, IMapper mapper)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
         _dateTimeProvider = dateTimeProvider;
+        _mapper = mapper;
     }
 
     public async Task<List<ConversationListDto>> GetUserConversationsAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -64,21 +67,11 @@ public class ConversationService : IConversationService
         var otherUser = conversation.Participants.FirstOrDefault(p => p.UserId != userId)?.User;
         if (otherUser == null) return null;
 
-        var messageDtos = conversation.Messages
-            .Where(m => !m.IsDeleted)
-            .OrderBy(m => m.SentAtUtc)
-            .Select(m => new MessageDto
-            {
-                Id = m.Id,
-                ConversationId = m.ConversationId,
-                SenderId = m.SenderId,
-                SenderName = m.Sender.FullName,
-                Content = m.Content,
-                Status = m.Status,
-                IsDeleted = m.IsDeleted,
-                SentAtUtc = m.SentAtUtc,
-                EditedAtUtc = m.EditedAtUtc
-            }).ToList();
+        var messageDtos = _mapper.Map<List<MessageDto>>(
+            conversation.Messages
+                .Where(m => !m.IsDeleted)
+                .OrderBy(m => m.SentAtUtc)
+                .ToList());
 
         return new ConversationDetailDto
         {
